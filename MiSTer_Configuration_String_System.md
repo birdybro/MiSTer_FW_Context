@@ -873,49 +873,279 @@ When certain file types are loaded, the system can automatically apply controlle
 
 ## Best Practices and Examples
 
-### Core Configuration Example
+### PSX Core Configuration String - Complete Analysis
 
-Here's a comprehensive example for a retro computer core:
+The PSX core provides an excellent real-world example showcasing nearly every feature of the CONF_STR system. Here's a complete line-by-line analysis:
 
 ```systemverilog
-localparam CONF_STR = {
-    "MyComputer;;",
-    
-    // Video Settings
-    "P1,Video Settings;",
-    "P1-;",
-    "P1O[2],TV Mode,NTSC,PAL;",
-    "P1O[4:3],Composite Video,Color,B&W,Green,Amber;",
-    "P1O[6:5],Scanlines,Off,25%,50%,75%;",
-    "P1O[8:7],Scale,Normal,V-Integer,Narrow,Wide;",
-    
-    // Audio Settings  
-    "P2,Audio Settings;",
-    "P2-;",
-    "P2O[10],Audio Filter,Off,On;",
-    "P2O[12:11],Volume,100%,75%,50%,25%;",
-    
-    // Storage
-    "-;",
-    "F1,D64,G64,NIB,TAP;",
-    "S2,D81,D71,D64;",
-    "-;",
-    
-    // Advanced Options
-    "P3,Advanced;",
-    "P3-;",
-    "P3O[15],Warp Mode,Off,On;",
-    "H15P3O[16],Debug Mode,Off,On;",  // Hidden unless warp enabled
-    "d15P3F2,PRG;",                   // Disabled unless warp enabled
-    
-    // System
-    "-;",
-    "T[0],Reset;",
-    "R[1],Cold Reset;",
-    "v,1;",
-    "V,v",`BUILD_DATE
+`include "build_id.v"
+parameter CONF_STR = {
+```
+
+#### Core Header and Save State Support
+```systemverilog
+"PSX;SS3E000000:400000;",
+```
+- **Core Name**: "PSX"
+- **Save State Support**: `SS3E000000:400000` enables save states
+  - `SS` = Save State enable flag
+  - `3E000000` = Base address for save state data
+  - `400000` = Size of save state data (4MB)
+
+#### CD-ROM Management with Conditional Display
+```systemverilog
+"H7S1,CUECHD,Load CD;",
+"h7-,Reload core for CD;",
+"F1,EXE,Load Exe;",
+"-;",
+```
+- **Line 1**: `H7` = Hide when status[7] is set (hide CD loader when CD mounted)
+  - `S1` = Storage mount dialog for index 1
+  - `CUECHD` = Accepts CUE and CHD file formats
+- **Line 2**: `h7` = Hide when status[7] is clear (show reload message when CD mounted)
+  - `-` = Separator line (shows as text)
+- **Line 3**: `F1` = File dialog for index 1, EXE files (PlayStation executables)
+- **Line 4**: Simple separator
+
+#### Cheat System with Conditional Access
+```systemverilog
+"d6C,Cheats;",
+"h6O[6],Cheats Enabled,Yes,No;",
+"-;",
+```
+- **Line 1**: `d6` = Disable when status[6] is clear (disable cheat menu when cheats off)
+  - `C` = Cheat system access
+- **Line 2**: `h6` = Hide when status[6] is clear (hide cheat toggle when cheats available)
+  - Status bit 6 controls cheat enable/disable
+- **Line 3**: Separator
+
+#### Memory Card Management with Status Indicators
+```systemverilog
+"hA-,Memcard Status: not saved;",
+"HB-,Memcard Status: saved;", 
+"hC-,Memcard Status: saving...;",
+"RD,Save Memory Cards;",
+"O[71],Save to SDCard,On Open OSD,Manual;",
+"SC2,SAVMCD,Mount Memory Card 1;",
+"SC3,SAVMCD,Mount Memory Card 2;",
+"O[63],Automount Memory Card 1,Yes,No;",
+"-;",
+```
+- **Lines 1-3**: Dynamic status messages using hide conditions
+  - `hA` = Show "not saved" when status[10] is clear
+  - `HB` = Show "saved" when status[11] is set
+  - `hC` = Show "saving..." when status[12] is clear
+- **Line 4**: `R` = Reset trigger for memory card save operation
+- **Line 5**: Status bit 71 for save timing preference
+- **Lines 6-7**: Storage mount dialogs for memory card files
+- **Line 8**: Auto-mount preference for memory card 1
+
+#### Save State Management
+```systemverilog
+"O[36],Savestates to SDCard,On,Off;",
+"O[68],Autoincrement Slot,Off,On;",
+"O[38:37],Savestate Slot,1,2,3,4;",
+"RH,Save state (Alt-F1);",
+"RI,Restore state (F1);",
+"-;",
+```
+- **Line 1**: Storage location preference (bit 36)
+- **Line 2**: Auto-increment slot selection (bit 68)
+- **Line 3**: 2-bit slot selector (bits 37-38, 4 slots)
+- **Lines 4-5**: Reset triggers for save/restore operations
+- **Line 6**: Separator
+
+#### System Configuration
+```systemverilog
+"O[40:39],System Type,Auto,NTSC-U,NTSC-J,PAL;",
+"-;",
+```
+- **2-bit system type selector** (bits 39-40, 4 options)
+- Auto-detection or forced region setting
+
+#### Advanced Controller Configuration
+```systemverilog
+"D8O[48:45],Pad1,Dualshock,Off,Digital,Analog,GunCon,NeGcon,Wheel-NegCon,Wheel-Analog,Mouse,Justifier,SNAC-port1,Analog Joystick,Pop'n;",
+"D8O[52:49],Pad2,Dualshock,Off,Digital,Analog,GunCon,NeGcon,Wheel-NegCon,Wheel-Analog,Mouse,Justifier,SNAC-port2,Analog Joystick,Pop'n;",
+"D8h0O[66],SNAC MemCard,Virtual,Real;",
+"D8hFO[91],NeGcon Rumble,Off,On;",
+"D8h2O[9],Show Crosshair,Off,On;",
+"D8h4O[31],DS Mode,L3+R3+Up/Dn | Click,L1+L2+R1+R2+Up/Dn;",
+"O[57:56],Multitap,Off,Port1: 4 x Digital,Port1: 4 x Analog;",
+"-;",
+```
+- **Lines 1-2**: `D8` = Disable when status[8] is set (disable during gameplay)
+  - 4-bit controller type selectors (13 different controller types each)
+- **Lines 3-6**: Additional controller options with multiple conditions
+  - `h0` = Hide when SNAC disabled, `hF` = Hide when NeGcon not selected, etc.
+- **Line 7**: Multitap configuration (2 bits, 3 options)
+
+#### Multi-Page Video & Audio Settings
+```systemverilog
+"P1,Video & Audio;",
+"P1-;",
+"P1O[33:32],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
+"P1O[35:34],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
+"P1-;",
+"DEP1O[62],Fixed HBlank,On,Off;",
+"DEP1O[55],Fixed VBlank,Off,On;",
+"d5P1O[4:3],Vertical Crop,Off,On(224/270),On(216/256);",
+"P1O[67],Horizontal Crop,Off,On;",
+"P1O[61],Black Transitions,On,Off;",
+"P1O[41],Deinterlacing,Weave,Bob;",
+"P1O[60],Sync 480i for HDMI,Off,On;",
+"P1O[24],Rotate,Off,On;",
+"P1-;",
+"P1O[22],Dithering,On,Off;",
+"DEP1O[84],Render 24 Bit,Off,On;",
+"P1O[73],Dither 24 Bit for VGA,Off,On;",
+"P1-;",
+"P1O[89],480i to 480p Hack,Off,On;",
+"P1O[54:53],Widescreen Hack,Off,3:2,5:3,16:9;",
+"P1O[82:81],Texture Filter,Off,All Polygon,Dithered,Dith+Shaded;",
+"hDP1O[87:86],Filter Strength,25%,50%,75%,100%;",
+"hDP1O[83],Filter 2D Detect,Off,On;",
+"P1-;",
+"d1P1O[44],SPU RAM select,DDR3,SDRAM2;",
+"P1O[8:7],Stereo Mix,None,25%,50%,100%;",
+```
+- **Page 1 Definition**: All options prefixed with `P1`
+- **Multiple Conditions**: `DE` = Disable when debug enabled AND status[14] set
+- **Conditional Visibility**: `d5` = Disable when status[5] clear, `hD` = Hide when status[13] set
+- **Custom Aspect Ratios**: `[ARC1],[ARC2]` placeholders for user-defined ratios
+
+#### Miscellaneous Settings Page
+```systemverilog
+"P2,Miscellaneous;",
+"P2-;",
+"P2O[16],Fastboot,Off,On;",
+"P2O[42],CD Lid,Closed,Open;",
+"P2O[64],Pause when OSD open,On,Off;",
+"P2-;",
+"P2-,(U) = unsafe -> can crash;",
+"P2O[80:79],Turbo(Cheats Off),Off,Low(U),Medium(U),High(U);",
+"P2O[72],Pause when CD slow,On,Off(U);",
+"P2O[15],PAL 60Hz Hack,Off,On(U);",
+"P2O[21],CD Fast Seek,Off,On(U);",
+"P2O[77:75],CD Speed,Original,Forced 1X(U),Forced 2X(U),Hack 4X(U),Hack 6X(U),Hack 8X(U);",
+"P2O[78],Limit Max CD Speed,Off,On(U);",
+"P2O[85],RAM(Homebrew),2 MByte,8 MByte(U);",
+"P2O[90],GPU Slowdown,Off,On(U);",
+"P2-;",
+"P2O[28],FPS Overlay,Off,On;",
+"P2O[74],Error Overlay,Off,On;",
+"P2O[59],CD Slow Overlay,Off,On;",
+"h9P2O[70],CD Overlay,Read,Read+Seek;",
+```
+- **Page 2 Definition**: Miscellaneous options
+- **Safety Warnings**: "(U)" suffix indicates unsafe options
+- **3-bit CD Speed**: 6 different speed options (bits 75-77)
+- **Conditional Display**: `h9` = Hide when status[9] clear
+
+#### Debug Page (Conditionally Hidden)
+```systemverilog
+"h3-;",
+"h3P3,Debug;",
+"h3P3-;",
+"h3P3O[14],DDR3 Framebuffer,Off,On;",
+"h3P3O[10],DDR3 FB Color,16,24;",
+"h3P3O[11],VRAMViewer,Off,On;",
+"h3P3O[30],Sound,On,Off;",
+"h3P3O[43],RepTimingSPUDMA,Off,On;",
+"h3P3O[27],Textures,On,Off;",
+"h3P3O[69],LBA Overlay,Off,On;",
+"h3P3O[88],Fast CD DMA Timing,Off,On;",
+"h3P3T1,Advance Pause;",
+"h3P3T2,Sound IRQ Trigger;",
+```
+- **Entire Page Hidden**: `h3` = Hide when status[3] clear (debug mode disabled)
+- **Debug Options**: Development and testing features
+- **Trigger Commands**: `T1`, `T2` for debug functions
+
+#### System Controls and Button Mapping
+```systemverilog
+"-   ;",
+"R0,Reset;",
+"J1,Triangle(NeGcon B),O(Gun Fire|NeGcon A),X(Gun B|NeGcon I),[](NeGcon II),Select,Start(Gun A),L1,R1,L2,R2,L3,R3,Savestates,Fastforward,Pause(Core),Toggle Dualshock;",
+"jn,X,A,B,Y,Select,Start,L,R;",
+```
+- **Line 1**: Extended separator with spaces
+- **Line 2**: System reset trigger
+- **Line 3**: `J1` = Primary joystick button mapping with context-sensitive labels
+- **Line 4**: `jn` = Alternative button names for different controller types
+
+#### Status Information Display
+```systemverilog
+"I,",
+"Load=DPAD Up|Save=Down|Slot=L+R,",
+"Active Slot 1,",
+"Active Slot 2,",
+"Active Slot 3,",
+"Active Slot 4,",
+"Save to state 1,",
+"Restore state 1,",
+"Save to state 2,",
+"Restore state 2,",
+"Save to state 3,",
+"Restore state 3,",
+"Save to state 4,",
+"Restore state 4,",
+"Rewinding...,",
+"Slot 1 Analog,",
+"Slot 1 Digital,",
+"Slot 2 Analog,",
+"Slot 2 Digital,",
+"Region Unknown->US,",
+"Region JP,",
+"Region US,",
+"Region EU,",
+"Saving Memcard,",
+"Unsafe option used!;",
+```
+- **Information Array**: `I,` introduces status message definitions
+- **Dynamic Messages**: System displays appropriate message based on core state
+- **User Feedback**: Instructions, warnings, and status updates
+
+#### Version Information
+```systemverilog
+"V,v",`BUILD_DATE
 };
 ```
+- **Version Display**: Shows build date from build system
+
+### Key Patterns Demonstrated
+
+#### 1. **Conditional Display Matrix**
+```systemverilog
+"H7S1,CUECHD,Load CD;",     // Hide when CD loaded
+"h7-,Reload core for CD;",   // Show when CD loaded
+```
+
+#### 2. **Multi-Level Conditions**
+```systemverilog
+"D8h0O[66],SNAC MemCard,Virtual,Real;", // Disable during play AND hide when SNAC off
+```
+
+#### 3. **Status Bit Allocation Strategy**
+- Low bits (0-31): Core functionality
+- Mid bits (32-63): Video/audio settings  
+- High bits (64-95): Advanced features
+- Flags use single bits, multi-options use ranges
+
+#### 4. **Page Organization**
+- **Main Page**: Essential controls and file loading
+- **P1**: Video & Audio settings
+- **P2**: Miscellaneous and advanced options
+- **P3**: Debug (hidden by default)
+
+#### 5. **Safety Mechanisms**
+```systemverilog
+"P2O[80:79],Turbo(Cheats Off),Off,Low(U),Medium(U),High(U);",
+```
+- Clear labeling of unsafe options with "(U)" suffix
+- Descriptive warnings about potential crashes
+
+This PSX core configuration demonstrates the full power and flexibility of the MiSTer CONF_STR system, managing over 90 different configuration options across multiple pages with sophisticated conditional display logic.
 
 ### Status Register Usage
 
